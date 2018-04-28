@@ -4,3 +4,7 @@ version = "0.1.0"
 authors = ["Nicolas Gustafsson <nicolas.gustafsson@gmail.com>", "Kevin Zachrisson<kevin.zachrisson@hotmail.com>"]
 
 [dependencies]
+glutin = "0.14.0"
+gfx = "0.17.1"
+gfx_window_glutin = "0.22.0"
+gfx_core = "0.8.2"
