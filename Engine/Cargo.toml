@@ -1,6 +1,6 @@
 [package]
-name = "Engine"
+name = "engine"
 version = "0.1.0"
-authors = ["Nico <itsarabbit@gmail.com>"]
+authors = ["Nicolas Gustafsson <nicolas.gustafsson@gmail.com>", "Kevin Zachrisson<kevin.zachrisson@hotmail.com>"]
 
 [dependencies]
