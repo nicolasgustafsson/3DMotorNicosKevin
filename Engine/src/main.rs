@@ -208,7 +208,7 @@ void main() {
         vertex_buffer = 
         {
                     CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), [
-            Vertex { position: [-0.5, -0.25] },
+            Vertex { position: [time_elapsed.cos(), time_elapsed.cos()  * 2f32 + 0.25 ] },
             Vertex { position: [time_elapsed.sin(), 0.5] },
             Vertex { position: [0.25, -0.1] }
         ].iter().cloned()).expect("Could not create vertex buffer!")
