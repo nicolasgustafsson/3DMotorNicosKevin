@@ -265,7 +265,7 @@ void main() {
 
         let command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(device.clone(), graphics_queue.family()).unwrap()
             .begin_render_pass(framebuffers.as_ref().unwrap()[image_index].clone(), false, 
-            vec![[0.0, 0.0, 1.0, 1.0].into()]).unwrap()
+            vec![[100f32 / 255f32, 149f32 / 255f32, 237f32 / 255f32, 1.0].into()]).unwrap()
             .draw(pipeline.clone(),
             DynamicState{
                 line_width: None,
