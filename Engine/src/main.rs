@@ -7,9 +7,13 @@ extern crate vulkano;
 extern crate vulkano_shader_derive;
 
 mod vulkano_win_frankenstein;
+mod vulkano_instance;
+
+use vulkano_instance::PipelineImplementer;
+
+use vulkano::device::Device;
 
 use vulkano::instance::Instance;
-use vulkano::device::Device;
 
 use vulkano::swapchain;
 use vulkano::swapchain::PresentMode;
@@ -38,11 +42,15 @@ use std::sync::Arc;
 use std::mem;
 
 use std::time::Instant;
-use std::time::Duration;
 
 use vulkano_win_frankenstein::vulkano_win_frankenstein::VkSurfaceBuild;
 
 fn main() {
+
+    let instance = vulkano_instance::VulkanoInstance::new();
+
+    instance.print();
+
     let vulkano_instance =
     {
         let extensions = vulkano_win_frankenstein::vulkano_win_frankenstein::required_extensions();
@@ -111,16 +119,6 @@ fn main() {
         #[derive(Debug, Clone)]
         struct Vertex { position: [f32; 2] }
         impl_vertex!(Vertex, position);
-
-    let mut vertex_buffer = 
-    {
-
-        CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), [
-            Vertex { position: [-0.5, -0.25] },
-            Vertex { position: [0.0, 0.5] },
-            Vertex { position: [0.25, -0.1] }
-        ].iter().cloned()).expect("Could not create vertex buffer!")
-    };
 
     mod vs {
         #[derive(VulkanoShader)]
@@ -193,19 +191,18 @@ void main() {
     {
         let now = Instant::now();
 
-
         let mut time_elapsed = 0f32;
         // we sleep for 2 seconds
         time_elapsed = (now.duration_since(start).subsec_nanos() as f32) * 0.000000001f32 + now.duration_since(start).as_secs() as f32;
 
         let nanoseconds : u32 = now.duration_since(previous_frame_time).subsec_nanos();
 
-        println!("FPS = {}", 1000000000f64 / (nanoseconds as f64));
+       // println!("FPS = {}", 1000000000f64 / (nanoseconds as f64));
         
         previous_frame_time = now;
 
     
-        vertex_buffer = 
+        let vertex_buffer = 
         {
                     CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), [
             Vertex { position: [time_elapsed.cos(), time_elapsed.cos()  * 2f32 + 0.25 ] },
