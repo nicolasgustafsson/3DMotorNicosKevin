@@ -208,22 +208,13 @@ impl VulkanoInstance
 
 pub trait PipelineImplementer
 {
-    fn setup(&self);
-
     fn begin_render(self) -> Self;
 
     fn end_render(self) -> Self;
-
-    fn print(&self);
 }
 
 impl PipelineImplementer for VulkanoInstance
 {
-    fn setup(&self)
-    {
-        
-    }
-    
     fn begin_render(mut self) -> Self
     {
         let mut framebuffers : Option<Vec<Arc<Framebuffer<_,_>>>> = None;
@@ -355,10 +346,5 @@ impl PipelineImplementer for VulkanoInstance
         self.previous_frame_end_future = Box::new(future) as Box<_>;
 
         self
-    }
-
-    fn print(&self)
-    {
-        println!("HEJ NICOS");
     }
 }
