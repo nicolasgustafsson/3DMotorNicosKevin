@@ -33,9 +33,9 @@ fn main() {
             };
         });
 
-        instance = instance.begin_render();
+        instance.begin_render();
 
-        if instance.recreate_swapchain
+        if instance.should_recreate_swapchain
         {
             continue;
         }

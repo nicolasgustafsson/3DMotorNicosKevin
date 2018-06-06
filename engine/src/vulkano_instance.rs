@@ -95,7 +95,7 @@ pub struct VulkanoInstance
     image_index : usize,
     acquire_future : Option<SwapchainAcquireFuture<Window>>,
     command_buffer : Option<AutoCommandBuffer>,
-    pub recreate_swapchain : bool
+    pub should_recreate_swapchain : bool
 }
 
 impl VulkanoInstance
@@ -204,31 +204,31 @@ impl VulkanoInstance
             image_index : 0usize,
             acquire_future : None,
             command_buffer : None,
-            recreate_swapchain : false,
+            should_recreate_swapchain : false,
        }
     }
 }
 
 pub trait PipelineImplementer
 {
-    fn begin_render(self) -> Self;
+    fn recreate_swapchain(&mut self);
+
+    fn begin_render(&mut self);
 
     fn end_render(self) -> Self;
-
-    fn recreate_swapchain(&mut self);
 }
 
 impl PipelineImplementer for VulkanoInstance
 {
     fn recreate_swapchain(&mut self)
     {
-        let dimensions = 
+        self.dimensions = 
         {
             let (width, height) = self.window.window().get_inner_size().expect("Could not get window inner size!");
             [width, height]
         };
 
-        let (new_swapchain, new_images) = match self.swapchain.recreate_with_dimension(dimensions) 
+        let (new_swapchain, new_images) = match self.swapchain.recreate_with_dimension(self.dimensions) 
         {
             Ok(r) => r,
             Err(SwapchainCreationError::UnsupportedDimensions) => {
@@ -240,10 +240,10 @@ impl PipelineImplementer for VulkanoInstance
         mem::replace(&mut self.swapchain, new_swapchain);
         mem::replace(&mut self.images, new_images);
 
-        self.recreate_swapchain = false;
+        self.should_recreate_swapchain = false;
     }
 
-    fn begin_render(mut self) -> Self
+    fn begin_render(&mut self)
     {
         let mut framebuffers : Option<Vec<Arc<Framebuffer<_,_>>>> = None;
 
@@ -274,7 +274,7 @@ impl PipelineImplementer for VulkanoInstance
 
         self.previous_frame_end_future.cleanup_finished();
 
-        if self.recreate_swapchain
+        if self.should_recreate_swapchain
         {
             self.recreate_swapchain();
         }
@@ -284,8 +284,8 @@ impl PipelineImplementer for VulkanoInstance
             Ok(r) => r,
             Err(AcquireError::OutOfDate) => 
             {
-                self.recreate_swapchain = true;
-                return self;
+                self.should_recreate_swapchain = true;
+                return;
             },
             Err(err) => panic!("{:?}", err)
         };
@@ -345,15 +345,17 @@ impl PipelineImplementer for VulkanoInstance
             .end_render_pass()
             .unwrap().build().unwrap());
 
-        self
     }
 
     fn end_render(mut self) -> Self
     {
-        let future = self.previous_frame_end_future.join(self.acquire_future.unwrap());
-        let future = future.then_execute(self.graphics_queue.clone(), self.command_buffer.unwrap()).unwrap();
-        let future = future.then_swapchain_present(self.graphics_queue.clone(), self.swapchain.clone(), self.image_index);
-        let future = future.then_signal_fence_and_flush();
+        let acquire = mem::replace(&mut self.acquire_future, None);
+        let command_buffer = mem::replace(&mut self.command_buffer, None);
+
+        let future  = self.previous_frame_end_future.join(acquire.unwrap());
+        let future  = future.then_execute(self.graphics_queue.clone(), command_buffer.unwrap()).unwrap();
+        let future  = future.then_swapchain_present(self.graphics_queue.clone(), self.swapchain.clone(), self.image_index);
+        let future  = future.then_signal_fence_and_flush();
 
         match future {
             Ok(future) => {
@@ -367,10 +369,6 @@ impl PipelineImplementer for VulkanoInstance
                 self.previous_frame_end_future = Box::new(now(self.device.clone())) as Box<_>;
             }
         }
-
-        self.command_buffer = None;
-        self.acquire_future = None;
-
         self
     }
 }
