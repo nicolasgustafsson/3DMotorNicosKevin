@@ -35,6 +35,11 @@ fn main() {
 
         instance = instance.begin_render();
 
+        if instance.recreate_swapchain
+        {
+            continue;
+        }
+
         instance = instance.end_render();
     }
 }

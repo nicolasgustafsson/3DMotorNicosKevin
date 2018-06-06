@@ -10,3 +10,4 @@ Cargo.lock
 **/*.rs.bk
 Engine/target/
 engine/.vscode/
+engine/rls/debug/
