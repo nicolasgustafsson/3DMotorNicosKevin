@@ -41,28 +41,24 @@ fn main() {
 
         instance.begin_render();
 
-        if instance.should_recreate_swapchain
+        if instance.should_recreate_swapchain //todo: remove this, get result from begin_render instead
         {
             continue;
         }
 
-        for i in 0..=10
+        for i in 0..=100
         {
-        instance.draw_triangle([
-            [time_elapsed.sin() + (i as f32 / 10f32).sin(), time_elapsed.sin()  * 2f32 + 0.25 ], 
-            [time_elapsed.cos(), 0.5], 
-            [0.25, -0.1]]);
+            instance.draw_triangle([
+                [time_elapsed.sin() + (i as f32 / 10f32).sin(), time_elapsed.sin()  * 2f32 + 0.25 ], 
+                [time_elapsed.cos(), 0.5], 
+                [0.25, -0.1]]);
 
-        instance.draw_triangle([
-            [time_elapsed.cos() + (i as f32 / 10f32).cos(), time_elapsed.cos()  * 2f32 + 0.25 ], 
-            [time_elapsed.sin(), 0.5], 
-            [0.25, -0.1]]);
+            instance.draw_triangle([
+                [time_elapsed.cos() + (i as f32 / 10f32).cos(), time_elapsed.cos()  * 2f32 + 0.25 ], 
+                [time_elapsed.sin(), 0.5], 
+                [0.25, -0.1]]);
         }
 
         instance = instance.end_render();
     }
 }
-
-/*
-
-    */
