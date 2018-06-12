@@ -20,7 +20,6 @@ use vulkano::swapchain::SwapchainCreationError;
 use vulkano::swapchain::AcquireError;
 use vulkano::image::swapchain::SwapchainImage;
 
-use vulkano::command_buffer::AutoCommandBuffer;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::DynamicState;
 
@@ -38,7 +37,6 @@ use vulkano_win_frankenstein::vulkano_win_frankenstein::VkSurfaceBuild;
 
 use std::sync::Arc;
 use std::boxed::Box;
-use std::time::Instant;
 use std::mem;
 use std::vec::Vec;
 use std::option::Option;
@@ -77,12 +75,9 @@ mod fs
     struct _Dummy;
 }
 
-
 pub struct VulkanoInstance
 {
     device : Arc<Device>,
-    start : Instant,
-    previous_frame_time : Instant,
     previous_frame_end_future : Box<GpuFuture>,
     window : Arc<Surface<Window>>,
     swapchain : Arc<Swapchain<Window>>,
@@ -94,7 +89,7 @@ pub struct VulkanoInstance
     fragment_shader : fs::Shader,
     image_index : usize,
     acquire_future : Option<SwapchainAcquireFuture<Window>>,
-    command_buffer : Option<AutoCommandBuffer>,
+    command_buffer_builder : Option<AutoCommandBufferBuilder>, //maybe not option?
     pub should_recreate_swapchain : bool
 }
 
@@ -164,10 +159,6 @@ impl VulkanoInstance
                 true, 
                 None).expect("Could not create swapchain!")
         };
-
-        let start = Instant::now();
-        let previous_frame_time = start;
-
         let previous_frame_end_future = Box::new(now(device.clone())) as Box<GpuFuture>;
 
         let vertex_shader = vs::Shader::load(device.clone()).expect("Could not create vertex shader module!");
@@ -190,8 +181,6 @@ impl VulkanoInstance
 
         VulkanoInstance{
             device,
-            start,
-            previous_frame_time,
             previous_frame_end_future,
             window,
             swapchain,
@@ -203,8 +192,8 @@ impl VulkanoInstance
             fragment_shader,
             image_index : 0usize,
             acquire_future : None,
-            command_buffer : None,
             should_recreate_swapchain : false,
+            command_buffer_builder : None,
        }
     }
 }
@@ -216,6 +205,8 @@ pub trait PipelineImplementer
     fn begin_render(&mut self);
 
     fn end_render(self) -> Self;
+
+    fn draw_triangle(&mut self, points : [[f32; 2]; 3]);
 }
 
 impl PipelineImplementer for VulkanoInstance
@@ -247,30 +238,7 @@ impl PipelineImplementer for VulkanoInstance
     {
         let mut framebuffers : Option<Vec<Arc<Framebuffer<_,_>>>> = None;
 
-        let now = Instant::now();
 
-        // we sleep for 2 seconds
-        let time_elapsed = (now.duration_since(self.start).subsec_nanos() as f32) * 0.000000001f32 + now.duration_since(self.start).as_secs() as f32;
-
-        self.previous_frame_time = now;
-
-        let vertex_buffer = 
-        {
-            CpuAccessibleBuffer::from_iter(self.device.clone(), BufferUsage::all(), [
-            Vertex { position: [time_elapsed.cos(), time_elapsed.cos()  * 2f32 + 0.25 ] },
-            Vertex { position: [time_elapsed.sin(), 0.5] },
-            Vertex { position: [0.25, -0.1] }
-        ].iter().cloned()).expect("Could not create vertex buffer!")
-        };
-
-        let vertex_buffer_igen = 
-        {
-            CpuAccessibleBuffer::from_iter(self.device.clone(), BufferUsage::all(), [
-            Vertex { position: [time_elapsed.sin(), time_elapsed.sin()  * 2f32 + 0.25 ] },
-            Vertex { position: [time_elapsed.cos(), 0.5] },
-            Vertex { position: [0.25, -0.1] }
-        ].iter().cloned()).expect("Could not create vertex buffer!")
-        };
 
         self.previous_frame_end_future.cleanup_finished();
 
@@ -290,18 +258,6 @@ impl PipelineImplementer for VulkanoInstance
             Err(err) => panic!("{:?}", err)
         };
 
-                //this is where we do stuff
-        let pipeline = Arc::new(
-            GraphicsPipeline::start()
-            .vertex_input_single_buffer()
-            .vertex_shader(self.vertex_shader.main_entry_point(), ())
-            .triangle_list()
-            .viewports_dynamic_scissors_irrelevant(1)
-            .fragment_shader(self.fragment_shader.main_entry_point(), ())
-            .render_pass(Subpass::from(self.render_pass.clone(), 0).unwrap())
-            .build(self.device.clone())
-            .unwrap());
-
         if framebuffers.is_none()
         {
             let new_framebuffers = Some(self.images.iter().map(|image| 
@@ -315,45 +271,22 @@ impl PipelineImplementer for VulkanoInstance
         self.acquire_future = Some(acquire_future);
         self.image_index = image_index;
 
-        self.command_buffer = Some(AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.graphics_queue.family()).unwrap()
+        self.command_buffer_builder = Some(AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.graphics_queue.family()).unwrap()
             .begin_render_pass(framebuffers.as_ref().unwrap()[image_index].clone(), false, 
-            vec![[100f32 / 255f32, 149f32 / 255f32, 237f32 / 255f32, 1.0].into()]).unwrap()
-            .draw(pipeline.clone(),
-            DynamicState{
-                line_width: None,
-                viewports: Some(vec![Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [self.dimensions[0] as f32, self.dimensions[1] as f32],
-                    depth_range: 0.0 .. 1.0,
-                }]),
-                scissors: None,
-            },
-            vertex_buffer.clone(), (), ())
-            .unwrap()
-            .draw(pipeline.clone(),
-            DynamicState{
-                line_width: None,
-                viewports: Some(vec![Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [self.dimensions[0] as f32, self.dimensions[1] as f32],
-                    depth_range: 0.0 .. 1.0,
-                }]),
-                scissors: None,
-            },
-            vertex_buffer_igen.clone(), (), ())
-            .unwrap()
-            .end_render_pass()
-            .unwrap().build().unwrap());
-
+            vec![[100f32 / 255f32, 149f32 / 255f32, 237f32 / 255f32, 1.0].into()]).unwrap());
     }
 
     fn end_render(mut self) -> Self
     {
+        let mut command_buffer_builder = mem::replace(&mut self.command_buffer_builder, None);
+        command_buffer_builder = Some(command_buffer_builder.unwrap().end_render_pass().unwrap());
+
+        let command_buffer = command_buffer_builder.unwrap().build().unwrap();
+
         let acquire = mem::replace(&mut self.acquire_future, None);
-        let command_buffer = mem::replace(&mut self.command_buffer, None);
 
         let future  = self.previous_frame_end_future.join(acquire.unwrap());
-        let future  = future.then_execute(self.graphics_queue.clone(), command_buffer.unwrap()).unwrap();
+        let future  = future.then_execute(self.graphics_queue.clone(), command_buffer).unwrap();
         let future  = future.then_swapchain_present(self.graphics_queue.clone(), self.swapchain.clone(), self.image_index);
         let future  = future.then_signal_fence_and_flush();
 
@@ -370,5 +303,45 @@ impl PipelineImplementer for VulkanoInstance
             }
         }
         self
+    }
+
+    fn draw_triangle(&mut self, points : [[f32; 2]; 3])
+    {
+        let pipeline = Arc::new(
+            GraphicsPipeline::start()
+            .vertex_input_single_buffer()
+            .vertex_shader(self.vertex_shader.main_entry_point(), ())
+            .triangle_list()
+            .viewports_dynamic_scissors_irrelevant(1)
+            .fragment_shader(self.fragment_shader.main_entry_point(), ())
+            .render_pass(Subpass::from(self.render_pass.clone(), 0).unwrap())
+            .build(self.device.clone())
+            .unwrap());
+
+
+        let vertex_buffer = 
+        {
+            CpuAccessibleBuffer::from_iter(self.device.clone(), BufferUsage::all(), [
+            Vertex { position: points[0]},
+            Vertex { position: points[1]},
+            Vertex { position: points[2]}
+        ].iter().cloned()).expect("Could not create vertex buffer!")
+        };
+
+        let command_buffer_builder = mem::replace(&mut self.command_buffer_builder, None);
+
+        self.command_buffer_builder = Some(command_buffer_builder.unwrap().draw(pipeline.clone(),             
+            DynamicState
+            {
+                line_width: None,
+                viewports: Some(vec![Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: [self.dimensions[0] as f32, self.dimensions[1] as f32],
+                    depth_range: 0.0 .. 1.0,
+                }]),
+                scissors: None,
+            },             
+            vertex_buffer.clone(), (), ())
+            .unwrap());
     }
 }

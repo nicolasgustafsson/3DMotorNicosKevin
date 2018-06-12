@@ -10,6 +10,7 @@ mod vulkano_win_frankenstein;
 mod vulkano_instance;
 
 use vulkano_instance::PipelineImplementer;
+use std::time::Instant;
 
 fn main() {
 
@@ -19,8 +20,13 @@ fn main() {
 
     let mut run = true;
 
+    let start = Instant::now();
+
     while run
     {
+        let now = Instant::now();
+        let time_elapsed = (now.duration_since(start).subsec_nanos() as f32) * 0.000000001f32 + now.duration_since(start).as_secs() as f32;
+
         event_loop.poll_events(|event| 
         {
             match event 
@@ -38,6 +44,19 @@ fn main() {
         if instance.should_recreate_swapchain
         {
             continue;
+        }
+
+        for i in 0..=10
+        {
+        instance.draw_triangle([
+            [time_elapsed.sin() + (i as f32 / 10f32).sin(), time_elapsed.sin()  * 2f32 + 0.25 ], 
+            [time_elapsed.cos(), 0.5], 
+            [0.25, -0.1]]);
+
+        instance.draw_triangle([
+            [time_elapsed.cos() + (i as f32 / 10f32).cos(), time_elapsed.cos()  * 2f32 + 0.25 ], 
+            [time_elapsed.sin(), 0.5], 
+            [0.25, -0.1]]);
         }
 
         instance = instance.end_render();
