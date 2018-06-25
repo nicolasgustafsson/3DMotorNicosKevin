@@ -75,6 +75,11 @@ mod fs
     struct _Dummy;
 }
 
+pub enum RenderError
+{
+    SwapchainOutOfDate
+}
+
 pub struct VulkanoInstance
 {
     device : Arc<Device>,
@@ -202,7 +207,7 @@ pub trait PipelineImplementer
 {
     fn recreate_swapchain(&mut self);
 
-    fn begin_render(&mut self);
+    fn begin_render(&mut self) -> Result<(), RenderError>;
 
     fn end_render(&mut self);
 
@@ -228,8 +233,8 @@ impl PipelineImplementer for VulkanoInstance
         {
             Ok(r) => r,
             Err(SwapchainCreationError::UnsupportedDimensions) => {
-                    return;
-                    }
+                return;
+            }
             Err(err) => panic!("{:?}", err)
         };
 
@@ -239,7 +244,7 @@ impl PipelineImplementer for VulkanoInstance
         self.should_recreate_swapchain = false;
     }
 
-    fn begin_render(&mut self)
+    fn begin_render(&mut self) -> Result<(), RenderError>
     {
         let mut framebuffers : Option<Vec<Arc<Framebuffer<_,_>>>> = None;
 
@@ -256,7 +261,7 @@ impl PipelineImplementer for VulkanoInstance
             Err(AcquireError::OutOfDate) => 
             {
                 self.should_recreate_swapchain = true;
-                return;
+                return Err(RenderError::SwapchainOutOfDate);
             },
             Err(err) => panic!("{:?}", err)
         };
@@ -277,6 +282,8 @@ impl PipelineImplementer for VulkanoInstance
         self.command_buffer_builder = Some(AutoCommandBufferBuilder::primary_one_time_submit(self.device.clone(), self.graphics_queue.family()).unwrap()
             .begin_render_pass(framebuffers.as_ref().unwrap()[image_index].clone(), false, 
             vec![[100f32 / 255f32, 149f32 / 255f32, 237f32 / 255f32, 1.0].into()]).unwrap());
+
+        Ok(())
     }
 
     fn end_render(&mut self)

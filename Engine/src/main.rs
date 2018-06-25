@@ -46,9 +46,8 @@ fn main() {
             };
         });
 
-        instance.begin_render();
-
-        if instance.should_recreate_swapchain //todo: remove this, get result from begin_render instead
+        let result = instance.begin_render();
+        if result.is_err()
         {
             continue;
         }

@@ -11,3 +11,4 @@ Cargo.lock
 Engine/target/
 engine/.vscode/
 engine/rls/debug/
+*.orig
