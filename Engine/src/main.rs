@@ -21,11 +21,18 @@ fn main() {
     let mut run = true;
 
     let start = Instant::now();
+    let mut previous_time = start;
 
     while run
-    {
+    {        
         let now = Instant::now();
         let time_elapsed = (now.duration_since(start).subsec_nanos() as f32) * 0.000000001f32 + now.duration_since(start).as_secs() as f32;
+
+        let frame_delta = now - previous_time;
+
+        let frame_delta_ms = frame_delta.subsec_nanos() as f32 * 0.000001f32 + frame_delta.as_secs() as f32 * 1000f32;
+
+        println!("frametime: {} ms", frame_delta_ms);
 
         event_loop.poll_events(|event| 
         {
@@ -46,7 +53,7 @@ fn main() {
             continue;
         }
 
-        for i in 0..=100
+        for i in 0..=10
         {
             instance.draw_triangle([
                 [time_elapsed.sin() + (i as f32 / 10f32).sin(), time_elapsed.sin()  * 2f32 + 0.25 ], 
@@ -60,5 +67,6 @@ fn main() {
         }
 
         instance = instance.end_render();
+        previous_time = now;
     }
 }

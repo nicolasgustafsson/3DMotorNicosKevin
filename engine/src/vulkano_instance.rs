@@ -219,6 +219,11 @@ impl PipelineImplementer for VulkanoInstance
             [width, height]
         };
 
+        if self.dimensions[0] <= 0 || self.dimensions[1] <= 0
+        {
+            return;
+        }
+
         let (new_swapchain, new_images) = match self.swapchain.recreate_with_dimension(self.dimensions) 
         {
             Ok(r) => r,
@@ -278,12 +283,12 @@ impl PipelineImplementer for VulkanoInstance
 
     fn end_render(mut self) -> Self
     {
-        let mut command_buffer_builder = mem::replace(&mut self.command_buffer_builder, None);
+        let mut command_buffer_builder = self.command_buffer_builder.take();
         command_buffer_builder = Some(command_buffer_builder.unwrap().end_render_pass().unwrap());
 
         let command_buffer = command_buffer_builder.unwrap().build().unwrap();
 
-        let acquire = mem::replace(&mut self.acquire_future, None);
+        let acquire = self.acquire_future.take();
 
         let future  = self.previous_frame_end_future.join(acquire.unwrap());
         let future  = future.then_execute(self.graphics_queue.clone(), command_buffer).unwrap();
@@ -328,7 +333,7 @@ impl PipelineImplementer for VulkanoInstance
         ].iter().cloned()).expect("Could not create vertex buffer!")
         };
 
-        let command_buffer_builder = mem::replace(&mut self.command_buffer_builder, None);
+        let command_buffer_builder = self.command_buffer_builder.take();
 
         self.command_buffer_builder = Some(command_buffer_builder.unwrap().draw(pipeline.clone(),             
             DynamicState
