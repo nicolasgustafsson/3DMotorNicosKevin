@@ -66,7 +66,7 @@ fn main() {
                 [0.25, -0.1]]);
         }
 
-        instance = instance.end_render();
+        instance.end_render();
         previous_time = now;
     }
 }

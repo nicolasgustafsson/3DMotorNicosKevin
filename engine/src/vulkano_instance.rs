@@ -78,7 +78,7 @@ mod fs
 pub struct VulkanoInstance
 {
     device : Arc<Device>,
-    previous_frame_end_future : Box<GpuFuture>,
+    previous_frame_end_future : Option<Box<GpuFuture>>,
     window : Arc<Surface<Window>>,
     swapchain : Arc<Swapchain<Window>>,
     images : Vec<Arc<SwapchainImage<Window>>>,
@@ -181,7 +181,7 @@ impl VulkanoInstance
 
         VulkanoInstance{
             device,
-            previous_frame_end_future,
+            previous_frame_end_future : Some(previous_frame_end_future),
             window,
             swapchain,
             images,
@@ -204,7 +204,7 @@ pub trait PipelineImplementer
 
     fn begin_render(&mut self);
 
-    fn end_render(self) -> Self;
+    fn end_render(&mut self);
 
     fn draw_triangle(&mut self, points : [[f32; 2]; 3]);
 }
@@ -243,9 +243,7 @@ impl PipelineImplementer for VulkanoInstance
     {
         let mut framebuffers : Option<Vec<Arc<Framebuffer<_,_>>>> = None;
 
-
-
-        self.previous_frame_end_future.cleanup_finished();
+        self.previous_frame_end_future.as_mut().unwrap().cleanup_finished();
 
         if self.should_recreate_swapchain
         {
@@ -281,7 +279,7 @@ impl PipelineImplementer for VulkanoInstance
             vec![[100f32 / 255f32, 149f32 / 255f32, 237f32 / 255f32, 1.0].into()]).unwrap());
     }
 
-    fn end_render(mut self) -> Self
+    fn end_render(&mut self)
     {
         let mut command_buffer_builder = self.command_buffer_builder.take();
         command_buffer_builder = Some(command_buffer_builder.unwrap().end_render_pass().unwrap());
@@ -290,24 +288,23 @@ impl PipelineImplementer for VulkanoInstance
 
         let acquire = self.acquire_future.take();
 
-        let future  = self.previous_frame_end_future.join(acquire.unwrap());
+        let future  = self.previous_frame_end_future.take().unwrap().join(acquire.unwrap());
         let future  = future.then_execute(self.graphics_queue.clone(), command_buffer).unwrap();
         let future  = future.then_swapchain_present(self.graphics_queue.clone(), self.swapchain.clone(), self.image_index);
         let future  = future.then_signal_fence_and_flush();
 
         match future {
             Ok(future) => {
-                self.previous_frame_end_future = Box::new(future) as Box<_>;
+                self.previous_frame_end_future = Some(Box::new(future) as Box<_>);
             }
             Err(FlushError::OutOfDate) => {
-                self.previous_frame_end_future = Box::new(now(self.device.clone())) as Box<_>;
+                self.previous_frame_end_future = Some(Box::new(now(self.device.clone())) as Box<_>);
             }
             Err(e) => {
                 println!("{:?}", e);
-                self.previous_frame_end_future = Box::new(now(self.device.clone())) as Box<_>;
+                self.previous_frame_end_future = Some(Box::new(now(self.device.clone())) as Box<_>);
             }
         }
-        self
     }
 
     fn draw_triangle(&mut self, points : [[f32; 2]; 3])
