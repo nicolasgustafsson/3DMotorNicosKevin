@@ -8,9 +8,7 @@ extern crate vulkano_shader_derive;
 
 mod vulkano_win_frankenstein;
 mod vulkano_instance;
-
-use vulkano_instance::PipelineImplementer;
-use std::time::Instant;
+mod render_benchmarks;
 
 fn main() {
 
@@ -20,20 +18,9 @@ fn main() {
 
     let mut run = true;
 
-    let start = Instant::now();
-    let mut previous_time = start;
-
+    let mut test_harness = render_benchmarks::TestHarness::new(200);
     while run
     {        
-        let now = Instant::now();
-        let time_elapsed = (now.duration_since(start).subsec_nanos() as f32) * 0.000000001f32 + now.duration_since(start).as_secs() as f32;
-
-        let frame_delta = now - previous_time;
-
-        let frame_delta_ms = frame_delta.subsec_nanos() as f32 * 0.000001f32 + frame_delta.as_secs() as f32 * 1000f32;
-
-        println!("frametime: {} ms", frame_delta_ms);
-
         event_loop.poll_events(|event| 
         {
             match event 
@@ -46,26 +33,6 @@ fn main() {
             };
         });
 
-        let result = instance.begin_render();
-        if result.is_err()
-        {
-            continue;
-        }
-
-        for i in 0..=10
-        {
-            instance.draw_triangle([
-                [time_elapsed.sin() + (i as f32 / 10f32).sin(), time_elapsed.sin()  * 2f32 + 0.25 ], 
-                [time_elapsed.cos(), 0.5], 
-                [0.25, -0.1]]);
-
-            instance.draw_triangle([
-                [time_elapsed.cos() + (i as f32 / 10f32).cos(), time_elapsed.cos()  * 2f32 + 0.25 ], 
-                [time_elapsed.sin(), 0.5], 
-                [0.25, -0.1]]);
-        }
-
-        instance.end_render();
-        previous_time = now;
+        test_harness.tick_tests(&mut instance);
     }
 }
