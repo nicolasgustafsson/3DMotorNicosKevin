@@ -85,37 +85,37 @@ impl Drawer for TriangleDrawer
         for triangle in self.triangle_list.clone()
         {
             let pipeline = Arc::new(
-            GraphicsPipeline::start()
-            .vertex_input_single_buffer()
-            .vertex_shader(self.vertex_shader.main_entry_point(), ())
-            .triangle_list()
-            .viewports_dynamic_scissors_irrelevant(1)
-            .fragment_shader(self.fragment_shader.main_entry_point(), ())
-            .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-            .build(self.device.clone())
-            .unwrap());
+                GraphicsPipeline::start()
+                .vertex_input_single_buffer()
+                .vertex_shader(self.vertex_shader.main_entry_point(), ())
+                .triangle_list()
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(self.fragment_shader.main_entry_point(), ())
+                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+                .build(self.device.clone())
+                .unwrap());
 
-        let vertex_buffer = 
-        {
-            CpuAccessibleBuffer::from_iter(self.device.clone(), BufferUsage::all(), [
-                Vertex {position: triangle[0]},
-                Vertex {position: triangle[1]},
-                Vertex {position: triangle[2]}
-            ].iter().cloned()).expect("Could not create vertex buffer!")
-        };
-        
-        command_buffer_builder = command_buffer_builder.draw(pipeline.clone(),             
-            DynamicState
+            let vertex_buffer = 
             {
-                line_width: None,
-                viewports: Some(vec![Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                    depth_range: 0.0 .. 1.0,
-                }]),
-                scissors: None,
-            },             
-            vertex_buffer.clone(), (), ()).unwrap();
+                CpuAccessibleBuffer::from_iter(self.device.clone(), BufferUsage::all(), [
+                    Vertex {position: triangle[0]},
+                    Vertex {position: triangle[1]},
+                    Vertex {position: triangle[2]}
+                ].iter().cloned()).expect("Could not create vertex buffer!")
+            };
+            
+            command_buffer_builder = command_buffer_builder.draw(pipeline.clone(),             
+                DynamicState
+                {
+                    line_width: None,
+                    viewports: Some(vec![Viewport {
+                        origin: [0.0, 0.0],
+                        dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                        depth_range: 0.0 .. 1.0,
+                    }]),
+                    scissors: None,
+                },             
+                vertex_buffer.clone(), (), ()).unwrap();
         }
         self.triangle_list.clear();
         command_buffer_builder
