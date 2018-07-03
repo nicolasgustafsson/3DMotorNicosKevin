@@ -9,6 +9,7 @@ extern crate vulkano_shader_derive;
 mod vulkano_win_frankenstein;
 mod vulkano_instance;
 mod benchmarks;
+mod drawers;
 
 use benchmarks::render_benchmarks;
 

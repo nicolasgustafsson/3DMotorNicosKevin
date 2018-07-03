@@ -4,12 +4,8 @@ use vulkano::instance::Instance;
 use vulkano::instance::PhysicalDevice;
 use vulkano::device::Device;
 use vulkano::device::DeviceExtensions;
-use vulkano::buffer::BufferUsage;
-use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::framebuffer::Framebuffer;
 use vulkano::framebuffer::RenderPassAbstract;
-use vulkano::pipeline::GraphicsPipeline;
-use vulkano::pipeline::viewport::Viewport;
 use vulkano::swapchain;
 use vulkano::swapchain::Surface;
 use vulkano::swapchain::SurfaceTransform;
@@ -21,12 +17,10 @@ use vulkano::swapchain::AcquireError;
 use vulkano::image::swapchain::SwapchainImage;
 
 use vulkano::command_buffer::AutoCommandBufferBuilder;
-use vulkano::command_buffer::DynamicState;
 
 use vulkano::device::Queue; 
 use winit::Window;
 
-use vulkano::framebuffer::Subpass;
 use vulkano::sync::now;
 use vulkano::sync::GpuFuture;
 use vulkano::sync::FlushError;
@@ -34,46 +28,14 @@ use vulkano::sync::FlushError;
 use vulkano_win_frankenstein::vulkano_win_frankenstein;
 use vulkano_win_frankenstein::vulkano_win_frankenstein::VkSurfaceBuild;
 
-
 use std::sync::Arc;
 use std::boxed::Box;
 use std::mem;
 use std::vec::Vec;
 use std::option::Option;
 
-#[derive(Debug, Clone)]
-struct Vertex { position: [f32; 2] }
-impl_vertex!(Vertex, position);
-
-mod vs 
-{
-    #[derive(VulkanoShader)]
-    #[ty = "vertex"]
-    #[src = "
-    #version 450
-    layout(location = 0) in vec2 position;
-    void main() 
-    {
-        gl_Position = vec4(position, 0.0, 1.0);
-    }
-    "]
-    struct _Dummy;
-}
-
-mod fs 
-{
-    #[derive(VulkanoShader)]
-    #[ty = "fragment"]
-    #[src = "
-    #version 450
-    layout(location = 0) out vec4 f_color;
-    void main() 
-    {
-        f_color = vec4(0.0, 0.0, 1.0, 1.0);
-    }
-    "]
-    struct _Dummy;
-}
+use drawers::drawer_base::Drawer;
+use drawers::drawer_triangle;
 
 pub enum RenderError
 {
@@ -90,11 +52,10 @@ pub struct VulkanoInstance
     render_pass : Arc<RenderPassAbstract + Send + Sync>,
     graphics_queue : Arc<Queue>,
     dimensions : [u32; 2],
-    vertex_shader : vs::Shader,
-    fragment_shader : fs::Shader,
     image_index : usize,
     acquire_future : Option<SwapchainAcquireFuture<Window>>,
     command_buffer_builder : Option<AutoCommandBufferBuilder>, //maybe not option?
+    triangle_drawer : drawer_triangle::TriangleDrawer,
     pub should_recreate_swapchain : bool
 }
 
@@ -166,9 +127,6 @@ impl VulkanoInstance
         };
         let previous_frame_end_future = Box::new(now(device.clone())) as Box<GpuFuture>;
 
-        let vertex_shader = vs::Shader::load(device.clone()).expect("Could not create vertex shader module!");
-        let fragment_shader = fs::Shader::load(device.clone()).expect("Could not create fragment shader module!");
-
         let render_pass = Arc::new(single_pass_renderpass!(device.clone(),
             attachments: {
                 color: {
@@ -184,6 +142,8 @@ impl VulkanoInstance
             }
         ).expect("Could not create render pass!"));
 
+        let triangle_drawer = drawer_triangle::TriangleDrawer::new(device.clone());
+
         VulkanoInstance{
             device,
             previous_frame_end_future : Some(previous_frame_end_future),
@@ -193,11 +153,10 @@ impl VulkanoInstance
             render_pass,
             graphics_queue,
             dimensions,
-            vertex_shader,
-            fragment_shader,
             image_index : 0usize,
             acquire_future : None,
             should_recreate_swapchain : false,
+            triangle_drawer,
             command_buffer_builder : None,
        }
     }
@@ -288,6 +247,8 @@ impl PipelineImplementer for VulkanoInstance
 
     fn end_render(&mut self)
     {
+        self.command_buffer_builder = Some(self.triangle_drawer.render(self.dimensions, self.command_buffer_builder.take().unwrap(), self.render_pass.clone()));
+
         let mut command_buffer_builder = self.command_buffer_builder.take();
         command_buffer_builder = Some(command_buffer_builder.unwrap().end_render_pass().unwrap());
 
@@ -316,41 +277,6 @@ impl PipelineImplementer for VulkanoInstance
 
     fn draw_triangle(&mut self, points : [[f32; 2]; 3])
     {
-        let pipeline = Arc::new(
-            GraphicsPipeline::start()
-            .vertex_input_single_buffer()
-            .vertex_shader(self.vertex_shader.main_entry_point(), ())
-            .triangle_list()
-            .viewports_dynamic_scissors_irrelevant(1)
-            .fragment_shader(self.fragment_shader.main_entry_point(), ())
-            .render_pass(Subpass::from(self.render_pass.clone(), 0).unwrap())
-            .build(self.device.clone())
-            .unwrap());
-
-
-        let vertex_buffer = 
-        {
-            CpuAccessibleBuffer::from_iter(self.device.clone(), BufferUsage::all(), [
-            Vertex { position: points[0]},
-            Vertex { position: points[1]},
-            Vertex { position: points[2]}
-        ].iter().cloned()).expect("Could not create vertex buffer!")
-        };
-
-        let command_buffer_builder = self.command_buffer_builder.take();
-
-        self.command_buffer_builder = Some(command_buffer_builder.unwrap().draw(pipeline.clone(),             
-            DynamicState
-            {
-                line_width: None,
-                viewports: Some(vec![Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [self.dimensions[0] as f32, self.dimensions[1] as f32],
-                    depth_range: 0.0 .. 1.0,
-                }]),
-                scissors: None,
-            },             
-            vertex_buffer.clone(), (), ())
-            .unwrap());
+        self.triangle_drawer.draw_triangle(points);
     }
 }
