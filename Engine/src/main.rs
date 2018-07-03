@@ -8,7 +8,9 @@ extern crate vulkano_shader_derive;
 
 mod vulkano_win_frankenstein;
 mod vulkano_instance;
-mod render_benchmarks;
+mod benchmarks;
+
+use benchmarks::render_benchmarks;
 
 fn main() {
 
@@ -18,7 +20,14 @@ fn main() {
 
     let mut run = true;
 
-    let mut test_harness = render_benchmarks::TestHarness::new(200);
+    let bench_length = std::time::Duration::new(3, 0);
+
+    let mut benchmarker = benchmarks::benchmarker::Benchmarker::new(vec!(
+        Box::new(render_benchmarks::TriangleBenchmark::new(bench_length, 10, 10)),
+        Box::new(render_benchmarks::TriangleBenchmark::new(bench_length, 1, 1)),
+        Box::new(render_benchmarks::TriangleBenchmark::new(bench_length, 3, 3)),
+        ));
+
     while run
     {        
         event_loop.poll_events(|event| 
@@ -33,6 +42,6 @@ fn main() {
             };
         });
 
-        test_harness.tick_tests(&mut instance);
+        benchmarker.tick_tests(&mut instance);
     }
 }
