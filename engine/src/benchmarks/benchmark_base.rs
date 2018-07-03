@@ -24,7 +24,12 @@ pub enum BenchmarkStatus
 
 pub trait RenderBenchmark
 {
-    fn begin_bench(&mut self);
+    fn begin_bench(&mut self)
+    {
+        let benchmark_common = self.benchmark_common();
+        benchmark_common.current_duration = Duration::new(0, 0);
+        benchmark_common.frames_rendered = 0;
+    }
 
     fn bench_frame_with_boilerplate(&mut self, renderer: &mut PipelineImplementer) -> BenchmarkStatus
     {

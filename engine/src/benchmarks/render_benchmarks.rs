@@ -24,12 +24,6 @@ impl TriangleBenchmark
 
 impl RenderBenchmark for TriangleBenchmark
 {
-    fn begin_bench(&mut self)
-    {
-        self.benchmark_common.current_duration = Duration::new(0, 0);
-        self.benchmark_common.frames_rendered = 0;
-    }
-
     fn bench_frame(&mut self, renderer: &mut PipelineImplementer)
     {
         let width_per_triangle = 2f32 / self.triangles_x as f32;
